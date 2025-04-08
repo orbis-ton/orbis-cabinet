@@ -1,9 +1,9 @@
-import type React from "react"
+import React from "react"
 import type { Metadata } from "next"
 import { Inter } from "next/font/google"
 import "./globals.css"
 import Header from "@/components/header"
-import { LanguageProvider } from "@/contexts/language-context"
+import { Providers } from "@/components/providers"
 
 const inter = Inter({ subsets: ["latin", "cyrillic"] })
 
@@ -20,12 +20,12 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={inter.className}>
-        <LanguageProvider>
+        <Providers>
           <div className="flex flex-col min-h-screen">
             <Header />
             <main className="flex flex-col items-center p-4 pt-28 bg-white flex-grow">{children}</main>
           </div>
-        </LanguageProvider>
+        </Providers>
       </body>
     </html>
   )
