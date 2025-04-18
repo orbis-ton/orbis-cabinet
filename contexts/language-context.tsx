@@ -64,7 +64,8 @@ const translations = {
     "profile.orbcBalance": "ORBC Balance",
     "profile.tonBalance": "TON Balance",
     "profile.nftTitle": "OM NFT",
-    "profile.buyNft": "Buy OM NFT",
+    "profile.buyNft": "Generate OM (NFT)",
+    "profile.collectRewards": "Get ORBC",
     "profile.processingTransaction": "Processing transaction... May take up to 5 minutes",
     "profile.omNft": "OM (NFT)",
     "profile.nextReward": "Next ORBC distribution date",
@@ -79,6 +80,7 @@ const translations = {
     "profile.txOutgoing": "Outgoing",
     "profile.txView": "View",
     "profile.loading": "Loading...",
+    "profile.giverAdmin": "Giver Admin",
   },
   ru: {
     // Common
@@ -130,7 +132,8 @@ const translations = {
     "profile.orbcBalance": "Баланс ORBC",
     "profile.tonBalance": "Баланс TON",
     "profile.nftTitle": "OM NFT",
-    "profile.buyNft": "Купить OM NFT",
+    "profile.buyNft": "Сгенерировать ОМ (NFT)",
+    "profile.collectRewards": "Получить ORBC",
     "profile.processingTransaction": "Обработка транзакции... Может занять до 5 минут",
     "profile.omNft": "OM (NFT)",
     "profile.nextReward": "Дата следующего распределения ORBC",
@@ -145,6 +148,7 @@ const translations = {
     "profile.txOutgoing": "Отправка",
     "profile.txView": "Просмотр",
     "profile.loading": "Загрузка...",
+    "profile.giverAdmin": "Giver Admin",
   },
 }
 
