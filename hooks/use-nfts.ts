@@ -12,7 +12,7 @@ export function useNfts() {
 
   const [userNfts, setUserNfts] = useState<NftItem[] | null>(null);
   const [eligibleNfts, setEligibleNfts] = useState<NftItem[]>([]);
-  const [unclaimedReward, setUnclaimedReward] = useState<BigInt>(BigInt(0));
+  const [unclaimedReward, setUnclaimedReward] = useState<bigint>(BigInt(0));
   const [allNftAddresses, setAllNftAddresses] = useState<Address[]>([]);
 
   // Reset NFT data when wallet address changes
