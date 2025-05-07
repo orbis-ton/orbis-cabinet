@@ -2,9 +2,9 @@ import { useCallback } from "react";
 import { Address, toNano } from "@ton/ton";
 import { beginCell, fromNano } from "@ton/core";
 import { useWalletContext } from "../contexts/wallet-context";
-import { OMGiver } from "@/lib/OMGiver";
+import { OMGiver } from "@/lib/OMGiver2";
 
-export function useAdminActions() {
+export function useAdminActions(fetchORBCBalance: (walletAddress: string, jettonMasterAddress: Address) => Promise<bigint>) {
   const {
     walletAddress,
     tonClient,
@@ -22,7 +22,7 @@ export function useAdminActions() {
       if (!tonClient || !sender || !walletAddress || !tonApi) return;
       const giver = await tonClient.open(OMGiver.fromAddress(omGiverAddress));
       const giverData = await giver.getGetGiverData();
-      const minAttach = toNano("0.01") +toNano("0.3") * giverData.nextItemIndex / 100n;
+      const minAttach = toNano("0.31") * giverData.nextItemIndex / 100n;
 
       try {
         setIsCalculatingDistribution(true);
@@ -33,10 +33,9 @@ export function useAdminActions() {
           await tonApi.accounts.getAccount(Address.parse(walletAddress))
         ).balance;
 
-        const ORBCBalance = await tonApi.accounts.getAccountJettonBalance(
-          giver.address,
-          jettonMasterAddress
-        );
+        const ORBCBalance = await fetchORBCBalance(omGiverAddress.toString(), jettonMasterAddress);
+
+        console.log("balance", ORBCBalance, giverData.balance);
 
         if (!balance_ || balance_ < minAttach) {
           setIsCalculatingDistribution(false);
@@ -55,8 +54,8 @@ export function useAdminActions() {
           },
           {
             $$type: "CalculateDistribution",
-            chunkSize: 100n,
-            currentBalance: ORBCBalance.balance,
+            // chunkSize: 100n,
+            currentBalance: ORBCBalance > giverData.balance ? ORBCBalance : null,
           }
         );
 

@@ -33,7 +33,6 @@ export function NftCard({
   unclaimedReward
 }: NftCardProps) {
   const { t } = useLanguage();
-
   const [isBuyNftPending, setIsBuyNftPending] = useState(false);
   const [buyNftError, setBuyNftError] = useState<string | null>(null);
 
@@ -41,7 +40,7 @@ export function NftCard({
   const [collectRewardsError, setCollectRewardsError] = useState<string | null>(null);
 
   const { nextDistributionTime } = useNextDistributionTime();
-  
+  console.log("userNfts (card component)", userNfts);
   return (
     <Card>
       <CardHeader>

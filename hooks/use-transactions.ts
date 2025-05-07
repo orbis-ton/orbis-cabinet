@@ -45,8 +45,8 @@ export function useTransactions() {
     }
   }, [tonApi, walletAddress, jettonMasterAddress]);
 
-  // Poll for transaction updates every 30 seconds
-  usePolling(() => fetchTransactions([]), 30000);
+  // Poll for transaction updates every 60 seconds
+  usePolling(() => fetchTransactions([]), 60000);
 
   return {
     actions,

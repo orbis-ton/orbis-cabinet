@@ -6,7 +6,7 @@ import { JettonWallet } from "@/lib/JettonWallet";
 import { randomInt } from "@/lib/utils";
 import { useWalletContext } from "../contexts/wallet-context";
 
-export function useNftPurchase(fetchNftData: () => Promise<[Address[], any[], any[], BigInt]>) {
+export function useNftPurchase(fetchNftData: (isOld?: boolean) => Promise<[Address[], any[], any[], BigInt, BigInt]>) {
   const { 
     walletAddress,
     tonClient,
@@ -65,7 +65,7 @@ export function useNftPurchase(fetchNftData: () => Promise<[Address[], any[], an
             )
           : { balance: 0n };
 
-        if (!jettonWalletExists || orbcBalance.balance < 10000n) {
+        if (!jettonWalletExists || orbcBalance.balance < toNano(10000)) {
           setIsBuyNftPending(false);
           setBuyNftError("Not enough ORBC balance");
           return;
@@ -85,7 +85,7 @@ export function useNftPurchase(fetchNftData: () => Promise<[Address[], any[], an
           {
             $$type: "JettonTransfer",
             queryId: randomInt(),
-            amount: 10000n,
+            amount: toNano(10000),
             destination: omGiverAddress,
             responseDestination: Address.parse(walletAddress),
             customPayload: null,
@@ -98,16 +98,17 @@ export function useNftPurchase(fetchNftData: () => Promise<[Address[], any[], an
         const timeoutDuration = 300000; // 5 minutes timeout
         const startTime = Date.now();
 
-        const [, userNfts_] = await fetchNftData();
+        const [, userNfts_] = await fetchNftData(false);
         const prevNftLength = userNfts_.length || 0;
 
         const checkTransaction = async () => {
+          setIsBuyNftPending(true);
           if (Date.now() - startTime > timeoutDuration) {
             throw new Error("Transaction timeout");
           }
           console.log("Checking transaction...");
           // Fetch latest blockchain data to check if NFT was minted
-          const [, userNfts_] = await fetchNftData();
+          const [, userNfts_] = await fetchNftData(false);
           console.log("User NFTs:", userNfts_);
           // If we see the NFT in userNfts, transaction was successful
           if (userNfts_.length > prevNftLength) {

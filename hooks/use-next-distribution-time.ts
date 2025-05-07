@@ -9,7 +9,7 @@ export function useNextDistributionTime() {
   const { tonClient, omGiverAddress } = useWalletContext();
   
   const [nextDistributionTime, setNextDistributionTime] = useState<Date>(
-    new Date('2025-04-12')
+    new Date('2025-05-03')
   );
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -25,7 +25,7 @@ export function useNextDistributionTime() {
       const lastDistributionTime = (await giver.getGetGiverData())
         .lastRewardDistribution;
       
-      const defaultDistributionTime = BigInt(new Date('2025-04-12').getTime());
+      const defaultDistributionTime = BigInt(new Date('2025-05-03').getTime());
 
       const nextTimeBigInt =
         lastDistributionTime === 0n

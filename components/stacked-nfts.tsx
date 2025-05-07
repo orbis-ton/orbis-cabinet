@@ -22,7 +22,7 @@ export function StackedNfts({ userNfts }: StackedNftsProps) {
           }}
         >
           <Image
-            src="/placeholder.jpg"
+            src="placeholder.jpg"
             alt={`OM NFT ${index + 1}`}
             width={160}
             height={160}

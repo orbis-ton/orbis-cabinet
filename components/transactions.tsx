@@ -16,19 +16,14 @@ import { Address } from "@ton/ton";
 import { fromNano } from "@ton/core";
 import { Action } from "@ton-api/client";
 import { truncateAddress } from "@/lib/utils";
+import { useTransactions } from "@/hooks/use-transactions";
+import { useWalletContext } from "@/contexts/wallet-context";
 
-interface TransactionsProps {
-  actions: (Action & {
-    actionData?: any;
-    timestamp?: number;
-    explorerLink?: string;
-    lt?: bigint;
-  })[] | null;
-  walletAddress: string;
-}
-
-export function Transactions({ actions, walletAddress }: TransactionsProps) {
+export function Transactions() {
   const { t } = useLanguage();
+  const { walletAddress } = useWalletContext();
+  const { actions } = useTransactions();
+  
   const [copiedAddress, setCopiedAddress] = useState<{
     address: string;
     rowId: number;
@@ -108,7 +103,7 @@ export function Transactions({ actions, walletAddress }: TransactionsProps) {
                               : a.type === "SmartContractExec"
                               ? "TON "
                               : a.type === "JettonTransfer"
-                              ? "ORBC "
+                              ? "ORB "
                               : a.type === "NftItemTransfer"
                               ? "OM "
                               : ""}{" "}
@@ -182,7 +177,7 @@ export function Transactions({ actions, walletAddress }: TransactionsProps) {
                             ? fromNano(a.actionData?.amount)
                             : fromNano(a.actionData?.amount)}
                           {a.type === "JettonTransfer"
-                            ? " ORBC"
+                            ? " ORB"
                             : a.type === "TonTransfer"
                             ? " TON"
                             : a.type === "SmartContractExec"

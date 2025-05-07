@@ -8,8 +8,8 @@ import { Providers } from "@/components/providers"
 const inter = Inter({ subsets: ["latin", "cyrillic"] })
 
 export const metadata: Metadata = {
-  title: "ORBIS Token Migration Tool",
-  description: "Migrate ORBC tokens to TON blockchain",
+  title: "ORBIS Profile Page",
+  description: "Get ORB distributions on your OM NFT",
 }
 
 export default function RootLayout({

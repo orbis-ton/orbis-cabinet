@@ -7,16 +7,20 @@ import { randomInt } from "@/lib/utils";
 import { useWalletContext } from "../contexts/wallet-context";
 import { OMGiver } from "@/lib/OMGiver";
 
-export function useCollectRewards() {
+export function useCollectRewards(old: boolean) {
   const {
     walletAddress,
     tonClient,
     tonApi,
     sender,
-    omGiverAddress, 
-    tonConnectUI
+    omGiverAddress,
+    omGiverAddress_old,
+    tonConnectUI,
+    jettonMasterAddress,
+    jettonMasterAddress_old
   } = useWalletContext();
-
+  const giverAddress = old ? omGiverAddress_old : omGiverAddress;
+  const jettonMasterAddr = old ? jettonMasterAddress_old : jettonMasterAddress;
   const collectRewards = useCallback(
     async (
       eligibleNfts: NftItem[],
@@ -24,7 +28,15 @@ export function useCollectRewards() {
       setCollectRewardsError: (collectRewardsError: string | null) => void
     ) => {
       if (!tonClient || !sender || !walletAddress || !tonApi || !tonConnectUI) return;
+      
+      // Set pending state to true at the beginning
+      setIsCollectRewardsPending(true);
+      
       const minAttach = toNano("0.12");
+      
+      // Limit to 4 NFTs or less
+      const nftsToProcess = eligibleNfts.slice(0, 4);
+      const nftsCount = nftsToProcess.length;
 
       try {
         // Check TON balance
@@ -32,82 +44,74 @@ export function useCollectRewards() {
           await tonApi.accounts.getAccount(Address.parse(walletAddress))
         ).balance;
 
-        if (!balance_ || balance_ < minAttach * BigInt(eligibleNfts.length)) {
+        if (!balance_ || balance_ < minAttach * BigInt(nftsCount)) {
           console.log(balance_);
           setIsCollectRewardsPending(false);
           setCollectRewardsError(
-            `Not enough TON balance (need at least ${fromNano(minAttach * BigInt(eligibleNfts.length))} TON)`
+            `Not enough TON balance (need at least ${fromNano(minAttach * BigInt(nftsCount))} TON)`
           );
           return;
         }
 
         // Send transactions
         const messages: {address: string, amount: string, payload: string}[] = [];
-        for (const nft of eligibleNfts) {
-          const nftItem = await tonClient.open(
-            NftItemTemplate.fromAddress(nft.address)
-          );
-          const index = (await nftItem.getGetNftData()).index;
+        for (const nft of nftsToProcess) {
           messages.push({
             address: nft.address.toString(),
             amount: minAttach.toString(),
             payload: beginCell().store(storeNFTTransfer({
               $$type: "NFTTransfer",
               queryId: randomInt(),
-              newOwner: omGiverAddress,
+              newOwner: giverAddress,
               responseDestination: Address.parse(walletAddress),
               customPayload: null,
               forwardAmount: toNano("0.11"),
-              forwardPayload: beginCell().storeUint(index, 256).endCell(),
+              forwardPayload: beginCell().storeUint(nft.index, 256).endCell(),
             })).endCell().toBoc().toString("base64")
           });
         };
-        await tonConnectUI!.sendTransaction({
+        await tonConnectUI.sendTransaction({
           messages: messages,
           validUntil: Date.now() + 3 * 60 * 1000,
         });
 
-        // // Start polling for transaction completion
-        // const timeoutDuration = 300000; // 5 minutes timeout
-        // const startTime = Date.now();
+        // Start polling for transaction completion
+        const timeoutDuration = 300000; // 5 minutes timeout
+        const startTime = Date.now();
 
-        // const [, userNfts_] = await fetchNftData();
-        // const prevNftLength = userNfts_.length || 0;
+        let orbcBalance = 0n;
+        try {
+          orbcBalance = (await tonApi.accounts.getAccountJettonBalance(Address.parse(walletAddress), jettonMasterAddr)).balance;
+        } catch (error) {
+          console.error(error);
+        }
 
-        // const checkTransaction = async () => {
-        //   if (Date.now() - startTime > timeoutDuration) {
-        //     throw new Error("Transaction timeout");
-        //   }
-        //   console.log("Checking transaction...");
-        //   // Fetch latest blockchain data to check if NFT was minted
-        //   const [, userNfts_] = await fetchNftData();
-        //   console.log("User NFTs:", userNfts_);
-        //   // If we see the NFT in userNfts, transaction was successful
-        //   if (userNfts_.length > prevNftLength) {
-        //     console.log(
-        //       "Transaction successful",
-        //       userNfts_.length,
-        //       prevNftLength
-        //     );
-        //     return true;
-        //   }
+        const checkTransaction = async () => {
+          if (Date.now() - startTime > timeoutDuration) {
+            throw new Error("Transaction timeout");
+          }
+          console.log("Checking transaction...");
+          // Fetch latest blockchain data to check if NFT was minted
+          const orbcBalanceNew = (await tonApi.accounts.getAccountJettonBalance(Address.parse(walletAddress), jettonMasterAddr)).balance;
+          if (orbcBalanceNew > orbcBalance) return true;
+          // Wait 10 seconds before next check
+          await new Promise((resolve) => setTimeout(resolve, 10000));
+          return checkTransaction();
+        };
 
-        //   // Wait 10 seconds before next check
-        //   await new Promise((resolve) => setTimeout(resolve, 10000));
-        //   return checkTransaction();
-        // };
-
-        // await checkTransaction();
+        await checkTransaction();
+        setIsCollectRewardsPending(false);
         console.log("Transaction completed");
       } catch (error) {
         console.error(error);
         setCollectRewardsError(`Error sending NFTTransfer: ${error}`);
-      } finally {
+        // Also set pending state to false in case of errors
         setIsCollectRewardsPending(false);
+      } finally {
         console.log("Transaction processing finished");
       }
     },
-    [tonClient, tonApi, sender, walletAddress, omGiverAddress]
+    [tonClient, tonApi, sender, walletAddress, giverAddress, jettonMasterAddr, tonConnectUI]
   );
 
   return collectRewards;

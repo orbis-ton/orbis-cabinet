@@ -72,7 +72,7 @@ export function AccountCard({ walletAddress, balance, balanceORBC }: AccountCard
           <div className="text-sm text-muted-foreground">
             {t("profile.orbcBalance")}
           </div>
-          <BalanceWithLoader balance={balanceORBC} symbol="ORBC" />
+          <BalanceWithLoader balance={balanceORBC} symbol="ORB" />
         </div>
 
         <div className="flex items-center justify-between">

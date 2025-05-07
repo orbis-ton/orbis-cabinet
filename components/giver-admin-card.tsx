@@ -28,7 +28,7 @@ interface GiverAdminCardProps {
 }
 
 export function GiverAdminCard({
-  calculateDistribution
+  calculateDistribution,
 }: GiverAdminCardProps) {
   const { t } = useLanguage();
 
@@ -120,7 +120,7 @@ export function GiverAdminCard({
     fetchGiverData();
   }, [tonClient, omGiverAddress, jettonMasterAddress, walletAddress]);
 
-  usePolling(fetchGiverData, 10000);
+  usePolling(fetchGiverData, 120000);
 
   return (
     <Card className="mb-8">
@@ -165,7 +165,7 @@ export function GiverAdminCard({
                 onClick={() =>
                   calculateDistribution(
                     setIsCalculatingDistribution,
-                    setCalculateDistributionError
+                    setCalculateDistributionError,
                   )
                 }
                 disabled={isCalculatingDistribution}
@@ -198,7 +198,7 @@ export function GiverAdminCard({
                         <TableRow className="bg-muted">
                           <TableHead className="py-2">NFT ID</TableHead>
                           <TableHead className="py-2">
-                            ORBC to Distribute
+                            ORB to Distribute
                           </TableHead>
                         </TableRow>
                       </TableHeader>
@@ -210,7 +210,7 @@ export function GiverAdminCard({
                           >
                             <TableCell className="py-1">{item.nftId}</TableCell>
                             <TableCell className="py-1">
-                              {item.amount}
+                              {fromNano(item.amount)}
                             </TableCell>
                           </TableRow>
                         ))}
