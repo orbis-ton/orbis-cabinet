@@ -1,19 +1,24 @@
-import { useCallback, useState } from "react";
+import { useCallback } from "react";
 import { Address, toNano } from "@ton/ton";
-import { AccountStatus } from "@ton-api/client";
 import { beginCell, fromNano } from "@ton/core";
 import { JettonWallet } from "@/lib/JettonWallet";
 import { randomInt } from "@/lib/utils";
 import { useWalletContext } from "../contexts/wallet-context";
+import { MyNft } from "./use-nfts";
 
-export function useNftPurchase(fetchNftData: (isOld?: boolean) => Promise<[Address[], any[], any[], BigInt, BigInt]>) {
+export function useNftPurchase(
+  fetchMyNfts: () => Promise<MyNft[]>,
+  getTonBalance: (address: Address) => Promise<bigint>,
+  getJettonBalance: (address: Address | null, jettonMasterAddress: Address) => Promise<bigint>,
+) {
   const { 
     walletAddress,
     tonClient,
     tonApi,
     sender,
-    jettonMasterAddress,
-    omGiverAddress
+    jettonMasterAddress_3,
+    jettonWalletAddress_3,
+    omGiverAddress_3,
   } = useWalletContext();
 
   const buyNft = useCallback(
@@ -27,29 +32,14 @@ export function useNftPurchase(fetchNftData: (isOld?: boolean) => Promise<[Addre
       const mintAttach = toNano("0.2");
 
       try {
-        // Get jetton wallet address
-        const jettonWalletAddress = Address.parse(
-          (
-            await tonApi.blockchain.execGetMethodForBlockchainAccount(
-              jettonMasterAddress,
-              "get_wallet_address",
-              { args: [walletAddress] }
-            )
-          ).decoded.jetton_wallet_address
-        );
 
-        // Check if jetton wallet exists
-        const jettonWalletExists =
-          (await tonApi.accounts.getAccount(jettonWalletAddress)).status ===
-          AccountStatus.Active;
+
 
         // Check TON balance
-        const balance_ = (
-          await tonApi.accounts.getAccount(Address.parse(walletAddress))
-        ).balance;
+        const balance_ = await getTonBalance(Address.parse(walletAddress));
+        const jettonBalance = await getJettonBalance(Address.parse(walletAddress), jettonMasterAddress_3);
 
         if (!balance_ || balance_ < minAttach) {
-          console.log(balance_);
           setIsBuyNftPending(false);
           setBuyNftError(
             `Not enough TON balance (need at least ${fromNano(minAttach)} TON)`
@@ -57,15 +47,7 @@ export function useNftPurchase(fetchNftData: (isOld?: boolean) => Promise<[Addre
           return;
         }
 
-        // Check ORBC balance
-        const orbcBalance = jettonWalletExists
-          ? await tonApi.accounts.getAccountJettonBalance(
-              Address.parse(walletAddress),
-              jettonMasterAddress
-            )
-          : { balance: 0n };
-
-        if (!jettonWalletExists || orbcBalance.balance < toNano(10000)) {
+        if (jettonBalance < toNano(1)) {
           setIsBuyNftPending(false);
           setBuyNftError("Not enough ORBC balance");
           return;
@@ -73,7 +55,7 @@ export function useNftPurchase(fetchNftData: (isOld?: boolean) => Promise<[Addre
 
         // Send transaction
         const jettonWallet = tonClient.open(
-          JettonWallet.fromAddress(jettonWalletAddress)
+          JettonWallet.fromAddress(jettonWalletAddress_3!)
         );
 
         await jettonWallet.send(
@@ -86,7 +68,7 @@ export function useNftPurchase(fetchNftData: (isOld?: boolean) => Promise<[Addre
             $$type: "JettonTransfer",
             queryId: randomInt(),
             amount: toNano(10000),
-            destination: omGiverAddress,
+            destination: omGiverAddress_3,
             responseDestination: Address.parse(walletAddress),
             customPayload: null,
             forwardPayload: beginCell().storeUint(0, 1).asSlice(),
@@ -98,30 +80,31 @@ export function useNftPurchase(fetchNftData: (isOld?: boolean) => Promise<[Addre
         const timeoutDuration = 300000; // 5 minutes timeout
         const startTime = Date.now();
 
-        const [, userNfts_] = await fetchNftData(false);
-        const prevNftLength = userNfts_.length || 0;
+        const myNfts = await fetchMyNfts();
+        const prevNftLength = myNfts.length || 0;
 
         const checkTransaction = async () => {
           setIsBuyNftPending(true);
+          // Wait 10 seconds before next check
+          await new Promise((resolve) => setTimeout(resolve, 10000));
+          
           if (Date.now() - startTime > timeoutDuration) {
             throw new Error("Transaction timeout");
           }
           console.log("Checking transaction...");
           // Fetch latest blockchain data to check if NFT was minted
-          const [, userNfts_] = await fetchNftData(false);
-          console.log("User NFTs:", userNfts_);
+          const myNfts = await fetchMyNfts();
+          console.log("User NFTs:", myNfts);
           // If we see the NFT in userNfts, transaction was successful
-          if (userNfts_.length > prevNftLength) {
+          if (myNfts.length > prevNftLength) {
             console.log(
               "Transaction successful",
-              userNfts_.length,
+              myNfts.length,
               prevNftLength
             );
             return true;
           }
 
-          // Wait 10 seconds before next check
-          await new Promise((resolve) => setTimeout(resolve, 10000));
           return checkTransaction();
         };
 
@@ -140,9 +123,11 @@ export function useNftPurchase(fetchNftData: (isOld?: boolean) => Promise<[Addre
       tonApi,
       sender,
       walletAddress,
-      jettonMasterAddress,
-      omGiverAddress,
-      fetchNftData,
+      jettonMasterAddress_3,
+      omGiverAddress_3,
+      fetchMyNfts,
+      getTonBalance,
+      getJettonBalance,
     ]
   );
 

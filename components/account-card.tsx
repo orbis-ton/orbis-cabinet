@@ -8,15 +8,14 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { BalanceWithLoader } from "./balance-with-loader";
 import { truncateAddress } from "@/lib/utils";
+import { useBalancesContext } from "@/contexts/balances-context";
+import { useWalletContext } from "@/contexts/wallet-context";
 
-interface AccountCardProps {
-  walletAddress: string;
-  balance: bigint | null;
-  balanceORBC: bigint | null;
-}
 
-export function AccountCard({ walletAddress, balance, balanceORBC }: AccountCardProps) {
+export function AccountCard() {
   const { t } = useLanguage();
+  const { walletAddress } = useWalletContext();
+  const { tonBalance, balance3 } = useBalancesContext();
   const [tonConnectUI] = useTonConnectUI();
   const [copySuccess, setCopySuccess] = useState(false);
 
@@ -72,14 +71,14 @@ export function AccountCard({ walletAddress, balance, balanceORBC }: AccountCard
           <div className="text-sm text-muted-foreground">
             {t("profile.orbcBalance")}
           </div>
-          <BalanceWithLoader balance={balanceORBC} symbol="ORB" />
+          <BalanceWithLoader balance={balance3} symbol="ORB" />
         </div>
 
         <div className="flex items-center justify-between">
           <div className="text-sm text-muted-foreground">
             {t("profile.tonBalance")}
           </div>
-          <BalanceWithLoader balance={balance} symbol="TON" />
+          <BalanceWithLoader balance={tonBalance} symbol="TON" />
         </div>
       </CardContent>
     </Card>

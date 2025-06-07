@@ -9,30 +9,25 @@ import { CollectRewardsButton } from "./collect-rewards-button";
 import { StackedNfts } from "./stacked-nfts";
 import { useState } from "react";
 import { useNextDistributionTime } from "@/hooks/use-next-distribution-time";
+import { MyNft, UnclaimedRewardsData, useMyNfts } from "@/hooks/use-nfts";
+import { useCollectRewards } from "@/hooks/use-collect-rewards";
+import { useNftPurchase } from "@/hooks/use-nft-purchase";
+import { useBalancesContext } from "@/contexts/balances-context";
 
 interface NftCardProps {
-  userNfts: NftItem[] | null;
-  buyNft: (
-    setIsBuyNftPending: (isBuyNftPending: boolean) => void,
-    setBuyNftError: (buyNftError: string | null) => void
-  ) => void;
-  collectRewards: (
-    userNfts: NftItem[],
-    setIsCollectRewardsPending: (isCollectRewardsPending: boolean) => void,
-    setCollectRewardsError: (collectRewardsError: string | null) => void
-  ) => void;
-  eligibleNfts: NftItem[];
-  unclaimedReward: bigint;
+  userNfts: MyNft[] | null;
+  unclaimed: UnclaimedRewardsData;
 }
 
 export function NftCard({
   userNfts,
-  buyNft,
-  collectRewards,
-  eligibleNfts,
-  unclaimedReward
+  unclaimed,
 }: NftCardProps) {
   const { t } = useLanguage();
+  const { fetchMyNfts } = useMyNfts("3");
+  const { getTonBalance, getJettonBalance } = useBalancesContext();
+  const buyNft = useNftPurchase(fetchMyNfts, getTonBalance, getJettonBalance);
+
   const [isBuyNftPending, setIsBuyNftPending] = useState(false);
   const [buyNftError, setBuyNftError] = useState<string | null>(null);
 
@@ -40,7 +35,6 @@ export function NftCard({
   const [collectRewardsError, setCollectRewardsError] = useState<string | null>(null);
 
   const { nextDistributionTime } = useNextDistributionTime();
-  console.log("userNfts (card component)", userNfts);
   return (
     <Card>
       <CardHeader>
@@ -68,10 +62,9 @@ export function NftCard({
               {nextDistributionTime.toLocaleDateString()}
             </div>
             {/* <div className="flex flex-row items-center"> */}
-            {unclaimedReward > 0n && <CollectRewardsButton
-              eligibleNfts={eligibleNfts}
-              unclaimedReward={unclaimedReward}
-              collectRewards={collectRewards}
+            {unclaimed.totalUnclaimed > 0n && <CollectRewardsButton
+              eligibleNfts={unclaimed.eligibleNfts}
+              unclaimedReward={unclaimed.totalUnclaimed}
               isCollectRewardsPending={isCollectRewardsPending}
               collectRewardsError={collectRewardsError}
               setIsCollectRewardsPending={setIsCollectRewardsPending}

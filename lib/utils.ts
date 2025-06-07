@@ -1,10 +1,43 @@
-import { AccountEvent, Action } from "@ton-api/client";
-import { Address } from "@ton/ton";
+import { AccountEvent, Action, TonApiClient } from "@ton-api/client";
+import { Address, TonClient } from "@ton/ton";
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
+import { OMCollection } from "./OMCollection";
+import { OM } from "./OM";
+import { OMGiver } from "./OMGiver";
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
+}
+
+export async function delay(ms: number) {
+  await new Promise(resolve => setTimeout(resolve, ms));
+}
+
+export async function nftHolders(tonClient: TonClient, tonApi: TonApiClient, collection: Address, giverAddress: Address): Promise<Map<number, {owner: Address, item: Address, index: number, claimable: bigint, address: Address}>> {
+  const nfts = (await tonApi.nft.getItemsFromCollection(collection)).nftItems;
+  const owners = new Map<number, {owner: Address, item: Address, index: number, claimable: bigint, address: Address}>();
+  const giver = tonClient.open(OMGiver.fromAddress(giverAddress));
+  const toDistribute = (await giver.getGetGiverData()).toDistribute;
+  for (const nft of nfts) {
+    const ownerAddress = await nft.owner!.address;
+    owners.set(nft.index, {owner: ownerAddress, item: nft.address, index: nft.index, claimable: toDistribute.get(nft.index) || 0n, address: nft.address});
+  }
+  return owners;
+}
+
+
+export async function getJWAddress(tonApi: TonApiClient, jettonMasterAddress: Address, walletAddress: string) {
+  const jettonWalletAddress = Address.parse(
+    (
+      await tonApi.blockchain.execGetMethodForBlockchainAccount(
+        jettonMasterAddress,
+        "get_wallet_address",
+        { args: [walletAddress] }
+      )
+    ).decoded.jetton_wallet_address
+  );
+  return jettonWalletAddress;
 }
 
 export const randomInt = (): bigint => {

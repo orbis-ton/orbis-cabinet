@@ -1,29 +1,23 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useEffect, useState } from "react";
 import { useLanguage } from "@/contexts/language-context";
-import { AccountStatus, NftItem } from "@ton-api/client";
 import { InfoIcon } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Address, beginCell, fromNano, toNano } from "@ton/ton";
-import { useWalletContext } from "@/contexts/wallet-context";
-import { storeNFTTransfer } from "@/lib/NftItem";
-import { NftItemTemplate } from "@/lib/NftItem";
-import { randomInt } from "@/lib/utils";
-import { JettonWallet, storeJettonTransfer } from "@/lib/JettonWallet";
+import { fromNano } from "@ton/ton";
+import { useMigration } from "@/hooks/use-migration";
+import { useBalancesContext } from "@/contexts/balances-context";
+import { useMyNfts, useUnclaimedRewards } from "@/hooks/use-nfts";
+import type { MyNft, UnclaimedRewardsData } from "@/hooks/use-nfts";
+import { useCollectRewards } from "@/hooks/use-collect-rewards";
 
 interface NewTokenMigrationProps {
-  userNfts_old: NftItem[] | null;
-  balanceORBC_old: bigint | null;
-  unclaimedReward_old: bigint;
-  eligibleNfts_old: NftItem[];
   collectRewards: (
-    eligibleNfts: NftItem[],
+    eligibleNfts: MyNft[],
     setIsCollectRewardsPending: (isCollectRewardsPending: boolean) => void,
     setCollectRewardsError: (collectRewardsError: string | null) => void
   ) => void;
-  firstFourEligibleAmount: bigint;
 }
 
 interface CollectRewardsStepProps {
@@ -86,16 +80,15 @@ function MigrateNftsStep({
 }
 
 function MigrateTokensStep({
-  balanceORBC,
+  balance_old,
   migrateTokens,
   error,
 }: {
-  balanceORBC: bigint;
+  balance_old: bigint | null;
   migrateTokens: () => void;
   error: string | null;
 }) {
   const { t } = useLanguage();
-
   return (
     <div>
       <Button
@@ -104,7 +97,7 @@ function MigrateTokensStep({
         size="lg"
       >
         {t("migration.migrateTokens")}
-        {` (${fromNano(balanceORBC)})`}
+        {` (${fromNano(balance_old!.toString())})`}
       </Button>
       {error && <p className="text-red-500 text-sm">{error}</p>}
       <p className="text-muted-foreground font-small mt-2">{t("migration.step3")}</p>
@@ -112,230 +105,56 @@ function MigrateTokensStep({
   );
 }
 
-export function NewTokenMigration({
-  userNfts_old,
-  balanceORBC_old,
-  unclaimedReward_old,
-  eligibleNfts_old,
-  collectRewards,
-  firstFourEligibleAmount,
-}: NewTokenMigrationProps) {
+export function NewTokenMigration() {
   const { t } = useLanguage();
-  const [isTxPending, setIsTxPending] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const collectRewards1 = useCollectRewards("1");
+  const collectRewards2 = useCollectRewards("2");
+  const { balance1, balance2 } = useBalancesContext();
+
+  const { fetchUnclaimedRewardsData: fetchUnclaimedRewardsData1 } = useUnclaimedRewards("1");
+  const { fetchUnclaimedRewardsData: fetchUnclaimedRewardsData2 } = useUnclaimedRewards("2");
+
+  const { fetchMyNfts: fetchMyNfts1 } = useMyNfts("1");
+  const { fetchMyNfts: fetchMyNfts2 } = useMyNfts("2");
+  
+  const [myNfts1, setMyNfts1] = useState<MyNft[] | null>(null);
+  const [myNfts2, setMyNfts2] = useState<MyNft[] | null>(null);
+  const [unclaimed1, setUnclaimed1] = useState<UnclaimedRewardsData | null>(null);
+  const [unclaimed2, setUnclaimed2] = useState<UnclaimedRewardsData | null>(null);
+
+  useEffect(() => {
+    (async () => {
+      const myNfts1 = await fetchMyNfts1();
+      const myNfts2 = await fetchMyNfts2();
+      const unclaimedRewardsData1 = await fetchUnclaimedRewardsData1();
+      const unclaimedRewardsData2 = await fetchUnclaimedRewardsData2();
+
+      setMyNfts1(myNfts1);
+      setMyNfts2(myNfts2);
+      setUnclaimed1(unclaimedRewardsData1);
+      setUnclaimed2(unclaimedRewardsData2);
+
+    })();
+  }, [fetchMyNfts1, fetchMyNfts2, fetchUnclaimedRewardsData1, fetchUnclaimedRewardsData2]);
+
   const step =
-    unclaimedReward_old > 0n
-      ? "rewards"
-      : userNfts_old !== null && userNfts_old.length > 0
-      ? "nfts"
-      : "tokens";
+    unclaimed1 && unclaimed1.totalUnclaimed > 0n
+      ? "rewards1"
+    : unclaimed2 && unclaimed2.totalUnclaimed > 0n
+      ? "rewards2"
+    : myNfts1 !== null && myNfts1.length > 0
+      ? "nfts1"
+    : myNfts2 !== null && myNfts2.length > 0
+      ? "nfts2"
+    : balance1 !== null && balance1 > 0n
+      ? "tokens1"
+    : balance2 !== null && balance2 > 0n 
+      ? "tokens2" 
+    : unclaimed1 && unclaimed2 && myNfts1 && myNfts2 && balance1 && balance2 
+      ? "migrated"
+    : "loading";
 
-  const {
-    tonClient,
-    tonApi,
-    sender,
-    walletAddress,
-    tonConnectUI,
-    exchangerAddress,
-    jettonMasterAddress,
-    jettonMasterAddress_old,
-    nftCollectionAddress_old
-  } = useWalletContext();
-  const migrateNFTs = useCallback(async () => {
-    if (
-      !tonClient ||
-      !sender ||
-      !walletAddress ||
-      !tonApi ||
-      !tonConnectUI ||
-      !userNfts_old ||
-      !exchangerAddress ||
-      !nftCollectionAddress_old
-    )
-      return;
-    setIsTxPending(true);
-
-    const minAttach = toNano("0.12");
-    // Limit to 4 NFTs or less
-    const nftsToProcess = userNfts_old.slice(0, 4);
-    const nftsCount = nftsToProcess.length;
-
-    try {
-      // Check TON balance
-      const balance_ = (
-        await tonApi.accounts.getAccount(Address.parse(walletAddress))
-      ).balance;
-
-      if (!balance_ || balance_ < minAttach * BigInt(nftsCount)) {
-        console.log(balance_);
-        setIsTxPending(false);
-        setError(
-          `Not enough TON balance (need at least ${fromNano(
-            minAttach * BigInt(nftsCount)
-          )} TON)`
-        );
-        return;
-      }
-
-      const messages: { address: string; amount: string; payload: string }[] =
-        [];
-      for (const nft of nftsToProcess) {
-        const nftItem = await tonClient.open(
-          NftItemTemplate.fromAddress(nft.address)
-        );
-        const index = (await nftItem.getGetNftData()).index;
-        messages.push({
-          address: nft.address.toString(),
-          amount: minAttach.toString(),
-          payload: beginCell()
-            .store(
-              storeNFTTransfer({
-                $$type: "NFTTransfer",
-                queryId: randomInt(),
-                newOwner: exchangerAddress,
-                responseDestination: Address.parse(walletAddress),
-                customPayload: null,
-                forwardAmount: toNano("0.11"),
-                forwardPayload: beginCell().storeUint(index, 256).endCell(),
-              })
-            )
-            .endCell()
-            .toBoc()
-            .toString("base64"),
-        });
-      }
-      await tonConnectUI.sendTransaction({
-        messages: messages,
-        validUntil: Date.now() + 3 * 60 * 1000,
-      });
-
-      // Start polling for transaction completion
-      const timeoutDuration = 300000; // 5 minutes timeout
-      const startTime = Date.now();
-      const newNfts = (
-        await tonApi.accounts.getAccountNftItems(Address.parse(walletAddress))
-      ).nftItems.filter((nft) =>
-        nft.collection!.address.equals(nftCollectionAddress_old)
-      );
-      const checkTransaction = async () => {
-        if (Date.now() - startTime > timeoutDuration) {
-          throw new Error("Transaction timeout");
-        }
-        console.log("Checking nft migration transaction...");
-        const newNfts_upd = (
-          await tonApi.accounts.getAccountNftItems(Address.parse(walletAddress))
-        ).nftItems.filter((nft) =>
-          nft.collection!.address.equals(nftCollectionAddress_old)
-        );
-        if (newNfts_upd.length > newNfts.length) {
-          return true;
-        }
-        await new Promise((resolve) => setTimeout(resolve, 10000));
-        return checkTransaction();
-      };
-      await checkTransaction();
-    } catch (error) {
-      console.error(error);
-      setError(`${error}`);
-    } finally {
-      setIsTxPending(false);
-    }
-  }, [
-    userNfts_old,
-    setIsTxPending,
-    tonClient,
-    tonApi,
-    sender,
-    tonConnectUI,
-    walletAddress,
-  ]);
-
-  const migrateTokens = useCallback(async () => {
-    if (!tonClient || !sender || !walletAddress || !tonApi || !tonConnectUI || !exchangerAddress || !jettonMasterAddress || !jettonMasterAddress_old || !balanceORBC_old) return;
-    setIsTxPending(true);
-    const minAttach = toNano("0.1");
-
-    try {
-      const balance_ = (
-        await tonApi.accounts.getAccount(Address.parse(walletAddress))
-      ).balance;
-
-      if (!balance_ || balance_ < minAttach) {
-        console.log(balance_);
-        setIsTxPending(false);
-        setError(
-          `Not enough TON balance (need at least ${fromNano(
-            minAttach
-          )} TON)`
-        );
-        return;
-      }
-
-      const jettonWalletAddress = Address.parse(
-        (
-          await tonApi.blockchain.execGetMethodForBlockchainAccount(
-            jettonMasterAddress_old,
-            "get_wallet_address",
-            { args: [walletAddress] }
-          )
-        ).decoded.jetton_wallet_address
-      );
-
-      const jettonWallet = tonClient.open(
-        JettonWallet.fromAddress(jettonWalletAddress)
-      );
-
-      await jettonWallet.send(
-        sender,
-        {
-          value: minAttach,
-          bounce: true,
-        },
-        {
-          $$type: "JettonTransfer",
-          queryId: randomInt(),
-          amount: balanceORBC_old,
-          destination: exchangerAddress,
-          responseDestination: Address.parse(walletAddress),
-          customPayload: null,
-          forwardTonAmount: toNano("0.06"),
-          forwardPayload: beginCell().storeUint(0, 1).endCell().asSlice(),
-        }
-      );
-
-      const timeoutDuration = 150000; // 1 minute timeout
-      const startTime = Date.now();
-
-      let orbcBalance = 0n;
-      try {
-        orbcBalance = (await tonApi.accounts.getAccountJettonBalance(Address.parse(walletAddress), jettonMasterAddress)).balance;
-      } catch (error) {
-        console.error(error);
-      }
-      const checkTransaction = async () => {
-        if (Date.now() - startTime > timeoutDuration) {
-          throw new Error("Transaction timeout");
-        }
-
-        try {
-          const balanceNew = (await tonApi.accounts.getAccountJettonBalance(Address.parse(walletAddress), jettonMasterAddress)).balance;
-          if (balanceNew > orbcBalance) {
-            return true;
-          }
-        } catch (error) {
-          console.error(error);
-        }
-        await new Promise((resolve) => setTimeout(resolve, 10000));
-        return checkTransaction();
-      };
-      await checkTransaction();
-    } catch (error) {
-      console.error(error);
-      setError(`${error}`);
-    } finally {
-      setIsTxPending(false);
-    }
-  }, [tonClient, sender, walletAddress, tonApi, tonConnectUI, exchangerAddress, jettonMasterAddress, jettonMasterAddress_old, balanceORBC_old]);
+  const { migrateNFTs, migrateTokens, isTxPending, error, setError, setIsTxPending } = useMigration();
 
   return (
     <div className="w-full mx-auto space-y-6">
@@ -354,21 +173,29 @@ export function NewTokenMigration({
             <div className="space-y-2">
               <div className="flex justify-between">
                 <span className="text-sm text-muted-foreground">
-                  Old ORBC Balance:
+                  Old Balance:
                 </span>
                 <span className="font-medium">
-                  {balanceORBC_old !== null
-                    ? fromNano(balanceORBC_old.toString())
+                  {balance1 !== null
+                    ? fromNano(balance1.toString())
                     : "loading..."}{" "}
                   ORBC
+                  <br />
+                  {balance2 !== null
+                    ? fromNano(balance2.toString())
+                    : "loading..."}{" "}
+                  ORB
                 </span>
+                
               </div>
               <div className="flex justify-between">
                 <span className="text-sm text-muted-foreground">
                   NFTs on Old Network:
                 </span>
                 <span className="font-medium">
-                  {userNfts_old !== null ? userNfts_old.length : "loading..."}
+                  {myNfts1 !== null ? myNfts1.length : "loading..."}
+                  <br />
+                  {myNfts2 !== null ? myNfts2.length : "loading..."}
                 </span>
               </div>
               <div className="flex justify-between">
@@ -376,7 +203,9 @@ export function NewTokenMigration({
                   Unclaimed Rewards:
                 </span>
                 <span className="font-medium">
-                  {fromNano(unclaimedReward_old.toString())} ORBC
+                  {unclaimed1 !== null ? fromNano(unclaimed1.totalUnclaimed.toString()) : "loading..."} ORBC
+                  <br />
+                  {unclaimed2 !== null ? fromNano(unclaimed2.totalUnclaimed.toString()) : "loading..."} ORB
                 </span>
               </div>
             </div>
@@ -390,28 +219,48 @@ export function NewTokenMigration({
             <p>{"Processing transaction..."}</p>
           </div>
         )}
-        {step === "rewards" && !isTxPending && (
+        {step === "rewards1" && !isTxPending && (
           <CollectRewardsStep
-            unclaimedReward_old={unclaimedReward_old}
-            firstFourEligibleAmount={firstFourEligibleAmount}
-            collectRewards={() => {
-              collectRewards(eligibleNfts_old, setIsTxPending, setError);
-            }}
+            unclaimedReward_old={unclaimed1!.totalUnclaimed}
+            firstFourEligibleAmount={unclaimed1!.firstFourEligibleAmount}
+            collectRewards={() => collectRewards1(unclaimed1!.eligibleNfts, setIsTxPending, setError)}
             error={error}
           />
         )}
-        {step === "nfts" && userNfts_old !== null && !isTxPending && (
+        {step === "rewards2" && !isTxPending && (
+          <CollectRewardsStep
+            unclaimedReward_old={unclaimed2!.totalUnclaimed}
+            firstFourEligibleAmount={unclaimed2!.firstFourEligibleAmount}
+            collectRewards={() => collectRewards2(unclaimed2!.eligibleNfts, setIsTxPending, setError)}
+            error={error}
+          />
+        )}
+        {step === "nfts1" && myNfts1 !== null && !isTxPending && (
           <MigrateNftsStep
-            countNfts={userNfts_old.length}
+            countNfts={myNfts1.length}
             error={error}
-            migrateNfts={migrateNFTs}
+            migrateNfts={() => migrateNFTs("1", myNfts1)}
           />
         )}
-        {step === "tokens" && balanceORBC_old !== null && !isTxPending && (
-          <MigrateTokensStep
-            balanceORBC={balanceORBC_old}
+        {step === "nfts2" && myNfts2 !== null && !isTxPending && (
+          <MigrateNftsStep
+            countNfts={myNfts2.length}
             error={error}
-            migrateTokens={migrateTokens}
+            migrateNfts={() => migrateNFTs("2", myNfts2)}
+          />
+        )}
+        {step === "tokens1" && balance1 !== null && !isTxPending && (
+          <MigrateTokensStep
+            error={error}
+            balance_old={balance1}
+            migrateTokens={() => migrateTokens("1", balance1)}
+          />
+        )}
+        {step === "tokens2" && balance2 !== null && !isTxPending && (
+          <MigrateTokensStep
+            error={error}
+            balance_old={balance2}
+            migrateTokens={() => migrateTokens("2", balance2)}
           />
         )}
       </div>

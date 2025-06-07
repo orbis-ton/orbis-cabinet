@@ -1,10 +1,10 @@
 "use client";
 
 import Image from "next/image";
-import { NftItem } from "@ton-api/client";
+import { MyNft } from "@/hooks/use-nfts";
 
 interface StackedNftsProps {
-  userNfts: NftItem[];
+  userNfts: MyNft[];
 }
 
 export function StackedNfts({ userNfts }: StackedNftsProps) {

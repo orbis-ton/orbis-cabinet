@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useLanguage } from "@/contexts/language-context";
 
 import { ConnectWalletCard } from "@/components/connect-wallet-card";
@@ -8,10 +8,8 @@ import { AccountCard } from "@/components/account-card";
 import { NftCard } from "@/components/nft-card";
 import { GiverAdminCard } from "@/components/giver-admin-card";
 import { Transactions } from "@/components/transactions";
-import { useBalances } from "@/hooks/use-balances";
-import { useNfts } from "@/hooks/use-nfts";
+import { UnclaimedRewardsData, MyNft, useMyNfts, useUnclaimedRewards } from "@/hooks/use-nfts";
 import { useNftPurchase } from "@/hooks/use-nft-purchase";
-import { useTransactions } from "@/hooks/use-transactions";
 import { useCollectRewards } from "@/hooks/use-collect-rewards";
 import { useAdminActions } from "@/hooks/use-admin-actions";
 import {
@@ -19,43 +17,36 @@ import {
   useWalletContext,
 } from "@/contexts/wallet-context";
 import { usePolling } from "@/hooks/polling";
-import { NewTokenMigration } from "@/components/new-token-migration";
+import { BalancesContextProvider, useBalancesContext } from "@/contexts/balances-context";
+import { ImpersonateWallet } from "@/components/impersonate-wallet";
 
 function ProfilePageContent() {
   // Context hooks
-  const { t } = useLanguage();
-  const { isConnected, isAdmin, walletAddress } = useWalletContext();
+  const { isConnected, isAdmin } = useWalletContext();
+  const { getJettonBalance } = useBalancesContext();
 
-  const { balance, balanceORBC, balanceORBC_old, fetchBalances, fetchORBCBalance } = useBalances();
-  usePolling(fetchBalances, 10000);
+  const { fetchMyNfts } = useMyNfts("3");
+  const { fetchUnclaimedRewardsData } = useUnclaimedRewards("3");
 
-  const {
-    userNfts,
-    userNfts_old,
-    eligibleNfts,
-    eligibleNfts_old,
-    unclaimedReward,
-    unclaimedReward_old,
-    fetchNftData,
-    hasOldNfts,
-    firstFourEligibleAmount,
-  } = useNfts();
-
-  const buyNft = useNftPurchase(fetchNftData);
-  const { calculateDistribution } = useAdminActions(fetchORBCBalance);
-
-  // todo: effect on allNFTs(_old) change - set polling on load txs
   
-  const migratedOrNewUser = balanceORBC_old === 0n && !hasOldNfts;
-  // Fetch NFT data on initial load
-  useEffect(() => {
-    if (isConnected) {
-      fetchNftData(!migratedOrNewUser);
-    }
-  }, [isConnected, fetchNftData]);
-  usePolling(() => fetchNftData(!migratedOrNewUser), 60000);
+  const { calculateDistribution } = useAdminActions(getJettonBalance);
 
-  const collectRewards = useCollectRewards(!migratedOrNewUser);
+  const [userNfts, setUserNfts] = useState<MyNft[] | null>(null);
+  const [unclaimedReward, setUnclaimedReward] = useState<UnclaimedRewardsData>({ eligibleNfts: [], firstFourEligibleAmount: 0n, totalUnclaimed: 0n });
+
+  const fetchNftData = useCallback(async () => {
+    const myNfts = await fetchMyNfts();
+    const unclaimedRewardsData = await fetchUnclaimedRewardsData();
+
+    if (myNfts.length !== userNfts?.length) {
+      setUserNfts(myNfts);
+    }
+    if (unclaimedRewardsData.totalUnclaimed !== unclaimedReward.totalUnclaimed) {
+      setUnclaimedReward(unclaimedRewardsData);
+    }
+  }, [fetchMyNfts, fetchUnclaimedRewardsData, userNfts, unclaimedReward]);
+
+  usePolling(fetchNftData, 60000);
 
   if (!isConnected) {
     return <ConnectWalletCard />;
@@ -63,35 +54,21 @@ function ProfilePageContent() {
 
   return (
     <div className="w-full max-w-6xl">
+      {/* Uncomment for impersonation functionality in development */}
+      <ImpersonateWallet />
       {isAdmin && (
         <GiverAdminCard calculateDistribution={calculateDistribution} />
       )}
-      {!migratedOrNewUser && balanceORBC_old !== null && <NewTokenMigration
-        userNfts_old={userNfts_old}
-        balanceORBC_old={balanceORBC_old}
-        unclaimedReward_old={unclaimedReward_old}
-        eligibleNfts_old={eligibleNfts_old}
-        collectRewards={collectRewards}
-        firstFourEligibleAmount={firstFourEligibleAmount}
-      />}
-      {balanceORBC_old === null && <p>Loading...</p>}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-        {migratedOrNewUser && <AccountCard
-          walletAddress={walletAddress}
-          balance={balance}
-          balanceORBC={balanceORBC}
-        />}
-        {migratedOrNewUser && <NftCard
+        <AccountCard />
+        <NftCard
           userNfts={userNfts}
-          buyNft={buyNft}
-          collectRewards={collectRewards}
-          eligibleNfts={eligibleNfts}
-          unclaimedReward={unclaimedReward}
-        />}
+          unclaimed={unclaimedReward}
+        />
       </div>
 
       {/* Transactions Block */}
-      {migratedOrNewUser && <Transactions />}
+      <Transactions />
     </div>
   );
 }
@@ -99,7 +76,9 @@ function ProfilePageContent() {
 export default function ProfilePage() {
   return (
     <WalletContextProvider>
-      <ProfilePageContent />
+      <BalancesContextProvider>
+        <ProfilePageContent />
+      </BalancesContextProvider>
     </WalletContextProvider>
   );
 }

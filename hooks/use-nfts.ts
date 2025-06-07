@@ -1,133 +1,92 @@
-import { useCallback, useState, useEffect } from "react";
+import { useCallback } from "react";
 import { Address } from "@ton/ton";
-import { TonApiClient, NftItem } from "@ton-api/client";
-import { usePolling } from "./polling";
 import { useWalletContext } from "../contexts/wallet-context";
 import { OMGiver } from "@/lib/OMGiver";
-import { NftItemTemplate } from "@/lib/NftItem";
+import { nftHolders } from "@/lib/utils";
 
-export function useNfts() {
-  const { walletAddress, tonApi, tonClient, nftCollectionAddress, nftCollectionAddress_old, omGiverAddress, omGiverAddress_old} =
-    useWalletContext();
+// Types for NFT and unclaimed rewards data
+export type MyNft = { owner: Address; item: Address; index: number; claimable: bigint, address: Address };
+export type UnclaimedRewardsData = {
+  eligibleNfts: MyNft[];
+  firstFourEligibleAmount: bigint;
+  totalUnclaimed: bigint;
+};
 
-  const [userNfts, setUserNfts] = useState<NftItem[] | null>(null);
-  const [eligibleNfts, setEligibleNfts] = useState<NftItem[]>([]);
-  const [unclaimedReward, setUnclaimedReward] = useState<bigint>(BigInt(0));
-  const [allNftAddresses, setAllNftAddresses] = useState<Address[]>([]);
+export function useAllNfts(slug: "1" | "2" | "3") {
+  const { 
+    walletAddress, tonApi, tonClient, 
+    nftCollectionAddress_1, nftCollectionAddress_2, nftCollectionAddress_3, 
+    omGiverAddress_1, omGiverAddress_2, omGiverAddress_3 } = useWalletContext();
   
-  // State for old NFT data
-  const [userNfts_old, setUserNfts_old] = useState<NftItem[] | null>(null);
-  const [eligibleNfts_old, setEligibleNfts_old] = useState<NftItem[]>([]);
-  const [unclaimedReward_old, setUnclaimedReward_old] = useState<bigint>(BigInt(0));
-  const [allNftAddresses_old, setAllNftAddresses_old] = useState<Address[]>([]);
+  const giverAddress = slug === "1" ? omGiverAddress_1 : slug === "2" ? omGiverAddress_2 : omGiverAddress_3;
+  const collectionAddress = slug === "1" ? nftCollectionAddress_1 : slug === "2" ? nftCollectionAddress_2 : nftCollectionAddress_3;
 
-  const [hasOldNfts, setHasOldNfts] = useState<boolean>(false);
-  const [firstFourEligibleAmount, setFirstFourEligibleAmount] = useState<bigint>(BigInt(0));
+  const fetchAllNftOwners = useCallback(async () => {
+    if (!tonApi || !tonClient || !walletAddress) return;
+    const owners = await nftHolders(tonClient, tonApi, collectionAddress, giverAddress);
+    return owners;
+  }, [tonApi, tonClient, walletAddress, collectionAddress]);
   
-  // Reset NFT data when wallet address changes
-  useEffect(() => {
-    setUserNfts(null);
-    setAllNftAddresses([]);
-    setEligibleNfts([]);
-    setUnclaimedReward(BigInt(0));
-    setUserNfts_old(null);
-    setAllNftAddresses_old([]);
-    setEligibleNfts_old([]);
-    setUnclaimedReward_old(BigInt(0));
-    setFirstFourEligibleAmount(BigInt(0));
-  }, [walletAddress]);
+  return {
+    fetchAllNftOwners
+  }
+}
 
-  const isOldUser_ = useCallback(async (): Promise<boolean> => {
-    if (!tonApi || !tonClient || !walletAddress) return false;
-    const userNfts_old_ = (await tonApi.accounts.getAccountNftItems(Address.parse(walletAddress))).nftItems.filter(nft => nft.collection!.address.equals(nftCollectionAddress_old));
-    console.log("userNfts_old_", userNfts_old_);
-    return userNfts_old_.length > 0;
-  }, [tonApi, tonClient, walletAddress, nftCollectionAddress_old]);
+export function useMyNfts(slug: "1" | "2" | "3") {
+  const { walletAddress, tonClient } = useWalletContext();
+  
+  const { fetchAllNftOwners } = useAllNfts(slug);
 
-  const fetchNftData = useCallback(async (isOld: boolean = false): Promise<[Address[], NftItem[], NftItem[], BigInt, BigInt]> => {
-    if (!tonApi || !tonClient || !walletAddress) return [[], [], [], BigInt(0), BigInt(0)];
-    console.log("fetchNftData", isOld);
-    try {
-      const collectionAddress = isOld ? nftCollectionAddress_old : nftCollectionAddress;
-      const giverAddress = isOld ? omGiverAddress_old : omGiverAddress;
-      
-      const allNfts_ = await tonApi.nft.getItemsFromCollection(collectionAddress);
-      const nftAddresses = Array.isArray(allNfts_.nftItems)
-        ? allNfts_.nftItems.map((nft) => nft.address)
-        : [];
-      if (isOld) {
-        setAllNftAddresses_old(nftAddresses);
-      }
-      else {
-        setAllNftAddresses(nftAddresses);
-      }
-        
-      const userNfts_ = allNfts_.nftItems.filter((nft) =>
-        nft.owner!.address.equals(Address.parse(walletAddress))
-      );
-      if (isOld) {
-        setUserNfts_old(userNfts_);
-      }
-      else {
-        console.log("userNfts_", userNfts_);
-        setUserNfts(userNfts_);
-      }
-    
-      const eligibleNfts_: NftItem[] = [];
-      let totalAmount = BigInt(0);
-      let firstFourEligibleAmount_ = BigInt(0);
-      const giver = tonClient.open(OMGiver.fromAddress(giverAddress));
-      const toDistribute = (await giver.getGetGiverData()).toDistribute;
-      
-      for (const nft of userNfts_) {
-        const amount = toDistribute.get(nft.index);
-        if (amount && amount > 0n) {
-          eligibleNfts_.push(nft);
-          totalAmount += amount;
-          if (isOld) {
-            setEligibleNfts_old(eligibleNfts_);
-            setUnclaimedReward_old(totalAmount);
-          }
-          else {
-            setEligibleNfts(eligibleNfts_);
-            setUnclaimedReward(totalAmount);
-          }
-          if (eligibleNfts_.length <= 4) {
-            firstFourEligibleAmount_ += amount;
-            setFirstFourEligibleAmount(firstFourEligibleAmount_);
-          }
-        }
-      }
+  const fetchMyNfts = useCallback(async () => {
+    if (!tonClient) return [];
 
-      return [nftAddresses, userNfts_, eligibleNfts_, totalAmount, firstFourEligibleAmount];
-    } catch (error) {
-      console.error(`Error fetching ${isOld ? 'old' : 'current'} NFT data:`, error);
-      return [[], [], [], BigInt(0), BigInt(0)];
-    }
-  }, [tonApi, tonClient, walletAddress, nftCollectionAddress, nftCollectionAddress_old, omGiverAddress, omGiverAddress_old]);
+    const owners = await fetchAllNftOwners();
+    if (!owners) return [];
 
-  useEffect(() => {
-    if (!walletAddress) return;
-    (async () => {
-      const hasOld = await isOldUser_();
-      setHasOldNfts(hasOld);
-      console.log("hasOldNfts", hasOld);
-    })();
-  }, [isOldUser_]);
+    const myNfts = Array.from(owners.values())
+      .filter(owner => owner.owner.equals(Address.parse(walletAddress)))
+    return myNfts;
+  }, [fetchAllNftOwners, walletAddress]); 
 
   return {
-    userNfts,
-    allNftAddresses,
-    eligibleNfts,
-    unclaimedReward,
-    
-    userNfts_old,
-    allNftAddresses_old,
-    eligibleNfts_old,
-    unclaimedReward_old,
-
-    fetchNftData,
-    hasOldNfts,
-    firstFourEligibleAmount
-  };
+    fetchMyNfts
+  }
 }
+
+export function useUnclaimedRewards(slug: "1" | "2" | "3") {
+  const { walletAddress, tonApi, tonClient, omGiverAddress_1, omGiverAddress_2, omGiverAddress_3} =
+    useWalletContext();
+  const { fetchMyNfts } = useMyNfts(slug);
+
+  const fetchUnclaimedRewardsData = useCallback(async (): Promise<UnclaimedRewardsData> => {
+    if (!tonApi || !tonClient || !walletAddress) {
+      return { eligibleNfts: [], firstFourEligibleAmount: 0n, totalUnclaimed: 0n };
+    }
+    const myNfts = await fetchMyNfts();
+
+    const eligibleNfts: MyNft[] = [];
+    let firstFourEligibleAmount = BigInt(0);
+
+    for (const nft of myNfts) {
+      const amount = nft.claimable;
+      if (!amount) continue;
+      if (amount == 0n) continue;
+
+      eligibleNfts.push(nft);
+      if (eligibleNfts.length <= 4) {
+        firstFourEligibleAmount += amount;
+      }
+    }
+
+    return {
+      eligibleNfts,
+      firstFourEligibleAmount,
+      totalUnclaimed: eligibleNfts.map(nft => nft.claimable).reduce((a, b) => a + b, 0n)
+    };
+  }, [tonApi, tonClient, walletAddress, fetchMyNfts]);
+  
+  return {
+    fetchUnclaimedRewardsData
+  }
+}
+

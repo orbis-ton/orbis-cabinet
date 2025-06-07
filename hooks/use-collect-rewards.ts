@@ -6,24 +6,29 @@ import { NftItemTemplate, storeNFTTransfer } from "@/lib/NftItem";
 import { randomInt } from "@/lib/utils";
 import { useWalletContext } from "../contexts/wallet-context";
 import { OMGiver } from "@/lib/OMGiver";
+import { MyNft } from "./use-nfts";
+import { useBalancesContext } from "@/contexts/balances-context";
 
-export function useCollectRewards(old: boolean) {
+export function useCollectRewards(slug: string) {
   const {
     walletAddress,
     tonClient,
     tonApi,
     sender,
-    omGiverAddress,
-    omGiverAddress_old,
+    omGiverAddress_1,
+    omGiverAddress_2,
+    omGiverAddress_3,
     tonConnectUI,
-    jettonMasterAddress,
-    jettonMasterAddress_old
+    jettonMasterAddress_1,
+    jettonMasterAddress_2,
+    jettonMasterAddress_3
   } = useWalletContext();
-  const giverAddress = old ? omGiverAddress_old : omGiverAddress;
-  const jettonMasterAddr = old ? jettonMasterAddress_old : jettonMasterAddress;
+  const { getTonBalance, getJettonBalance } = useBalancesContext();
+  const giverAddress = slug === "1" ? omGiverAddress_1 : slug === "2" ? omGiverAddress_2 : omGiverAddress_3;
+  const jettonMasterAddr = slug === "1" ? jettonMasterAddress_1 : slug === "2" ? jettonMasterAddress_2 : jettonMasterAddress_3;
   const collectRewards = useCallback(
     async (
-      eligibleNfts: NftItem[],
+      eligibleNfts: MyNft[],
       setIsCollectRewardsPending: (isCollectRewardsPending: boolean) => void,
       setCollectRewardsError: (collectRewardsError: string | null) => void
     ) => {
@@ -40,12 +45,9 @@ export function useCollectRewards(old: boolean) {
 
       try {
         // Check TON balance
-        const balance_ = (
-          await tonApi.accounts.getAccount(Address.parse(walletAddress))
-        ).balance;
+        const balance_ = await getTonBalance(Address.parse(walletAddress));
 
         if (!balance_ || balance_ < minAttach * BigInt(nftsCount)) {
-          console.log(balance_);
           setIsCollectRewardsPending(false);
           setCollectRewardsError(
             `Not enough TON balance (need at least ${fromNano(minAttach * BigInt(nftsCount))} TON)`
@@ -79,23 +81,17 @@ export function useCollectRewards(old: boolean) {
         const timeoutDuration = 300000; // 5 minutes timeout
         const startTime = Date.now();
 
-        let orbcBalance = 0n;
-        try {
-          orbcBalance = (await tonApi.accounts.getAccountJettonBalance(Address.parse(walletAddress), jettonMasterAddr)).balance;
-        } catch (error) {
-          console.error(error);
-        }
+        const orbcBalance = await getJettonBalance(Address.parse(walletAddress), jettonMasterAddr);
 
         const checkTransaction = async () => {
+          await new Promise((resolve) => setTimeout(resolve, 10000));
           if (Date.now() - startTime > timeoutDuration) {
             throw new Error("Transaction timeout");
           }
           console.log("Checking transaction...");
           // Fetch latest blockchain data to check if NFT was minted
-          const orbcBalanceNew = (await tonApi.accounts.getAccountJettonBalance(Address.parse(walletAddress), jettonMasterAddr)).balance;
-          if (orbcBalanceNew > orbcBalance) return true;
-          // Wait 10 seconds before next check
-          await new Promise((resolve) => setTimeout(resolve, 10000));
+          const orbcBalanceNew = await getJettonBalance(Address.parse(walletAddress), jettonMasterAddr);
+          if (orbcBalanceNew > orbcBalance) return true;          
           return checkTransaction();
         };
 

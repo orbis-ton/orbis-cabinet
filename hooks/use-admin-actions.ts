@@ -4,7 +4,7 @@ import { beginCell, fromNano } from "@ton/core";
 import { useWalletContext } from "../contexts/wallet-context";
 import { OMGiver } from "@/lib/OMGiver2";
 
-export function useAdminActions(fetchORBCBalance: (walletAddress: string, jettonMasterAddress: Address) => Promise<bigint>) {
+export function useAdminActions(fetchORBCBalance: (walletAddress: Address | null, jettonMasterAddress: Address) => Promise<bigint>) {
   const {
     walletAddress,
     tonClient,
@@ -33,7 +33,7 @@ export function useAdminActions(fetchORBCBalance: (walletAddress: string, jetton
           await tonApi.accounts.getAccount(Address.parse(walletAddress))
         ).balance;
 
-        const ORBCBalance = await fetchORBCBalance(omGiverAddress.toString(), jettonMasterAddress);
+        const ORBCBalance = await fetchORBCBalance(omGiverAddress, jettonMasterAddress);
 
         console.log("balance", ORBCBalance, giverData.balance);
 
@@ -55,7 +55,9 @@ export function useAdminActions(fetchORBCBalance: (walletAddress: string, jetton
           {
             $$type: "CalculateDistribution",
             // chunkSize: 100n,
-            currentBalance: ORBCBalance > giverData.balance ? ORBCBalance : null,
+            // currentBalance: 27182896062232494n + 10000000000000n // ORBCBalance > giverData.balance ? ORBCBalance : null,
+            // currentBalance: balance + amountNFTPurchasedSinceLastDistribution * nftPrice,
+            currentBalance: 27852614699015270n
           }
         );
 
