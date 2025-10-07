@@ -7,27 +7,29 @@ import { NftItem } from "@ton-api/client";
 import { BuyNftButton } from "./buy-nft-button";
 import { CollectRewardsButton } from "./collect-rewards-button";
 import { StackedNfts } from "./stacked-nfts";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNextDistributionTime } from "@/hooks/use-next-distribution-time";
 import { UnclaimedRewardsData, useMyNfts } from "@/hooks/use-nfts";
 import { useCollectRewards } from "@/hooks/use-collect-rewards";
 import { useNftPurchase } from "@/hooks/use-nft-purchase";
 import { useBalancesContext } from "@/contexts/balances-context";
-import { NFT } from "@/contexts/orb-data-context";
+import { NFT, useOrbData } from "@/contexts/orb-data-context";
+import { useWalletContext } from "@/contexts/wallet-context";
 
-interface NftCardProps {
-  userNfts: NFT[] | null;
-  unclaimed: UnclaimedRewardsData;
-}
-
-export function NftCard({
-  userNfts,
-  unclaimed,
-}: NftCardProps) {
+export function NftCard() {
   const { t } = useLanguage();
   const { fetchMyNfts } = useMyNfts("3");
   const { getTonBalance, getJettonBalance } = useBalancesContext();
   const buyNft = useNftPurchase(fetchMyNfts, getTonBalance, getJettonBalance);
+  const { nfts } = useOrbData();
+  const { nftCollectionAddress_3 } = useWalletContext();
+
+  const [userNfts, setUserNfts] = useState<NFT[] | null>(null);
+  const [unclaimed, setUnclaimed] = useState<UnclaimedRewardsData>({ 
+    eligibleNfts: [], 
+    firstFourEligibleAmount: 0n, 
+    totalUnclaimed: 0n 
+  });
 
   const [isBuyNftPending, setIsBuyNftPending] = useState(false);
   const [buyNftError, setBuyNftError] = useState<string | null>(null);
@@ -36,6 +38,32 @@ export function NftCard({
   const [collectRewardsError, setCollectRewardsError] = useState<string | null>(null);
 
   const { nextDistributionTime } = useNextDistributionTime();
+
+  // Calculate user NFTs and unclaimed rewards from context data
+  useEffect(() => {
+    if (!nfts) return;
+    
+    const myNfts = nfts.filter(nft => nft.collection.equals(nftCollectionAddress_3));
+    const eligibleNfts = nfts.filter(
+      nft => nft.collection.equals(nftCollectionAddress_3) && 
+      nft.claimableAmount > 0n
+    );
+    const firstFourEligibleAmount = eligibleNfts?.slice(0, 4).reduce((acc, nft) => acc + nft.claimableAmount, 0n);
+    const totalUnclaimed = eligibleNfts?.reduce((acc, nft) => acc + nft.claimableAmount, 0n);
+    
+    const unclaimedRewardsData: UnclaimedRewardsData = { 
+      eligibleNfts: eligibleNfts || [],
+      firstFourEligibleAmount: firstFourEligibleAmount || 0n, 
+      totalUnclaimed: totalUnclaimed || 0n
+    };
+
+    if (myNfts?.length !== userNfts?.length) {
+      setUserNfts(myNfts);
+    }
+    if (unclaimedRewardsData.totalUnclaimed !== unclaimed.totalUnclaimed) {
+      setUnclaimed(unclaimedRewardsData);
+    }
+  }, [nfts, nftCollectionAddress_3, userNfts?.length, unclaimed.totalUnclaimed]);
   return (
     <Card>
       <CardHeader>

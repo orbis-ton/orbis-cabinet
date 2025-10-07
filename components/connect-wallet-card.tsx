@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 export function ConnectWalletCard() {
   const { t } = useLanguage();
   const [tonConnectUI] = useTonConnectUI();
+  console.log("ConnectWalletCard");
   return (
     <div className="w-full max-w-md flex flex-col items-center justify-center">
       <Card className="w-full">
