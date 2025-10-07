@@ -1,10 +1,10 @@
 "use client";
 
 import Image from "next/image";
-import { MyNft } from "@/hooks/use-nfts";
+import { NFT } from "@/contexts/orb-data-context";
 
 interface StackedNftsProps {
-  userNfts: MyNft[];
+  userNfts: NFT[];
 }
 
 export function StackedNfts({ userNfts }: StackedNftsProps) {

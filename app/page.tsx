@@ -9,53 +9,69 @@ import { NftCard } from "@/components/nft-card";
 import { GiverAdminCard } from "@/components/giver-admin-card";
 import { Transactions } from "@/components/transactions";
 import { UnclaimedRewardsData, MyNft, useMyNfts, useUnclaimedRewards } from "@/hooks/use-nfts";
-import { useNftPurchase } from "@/hooks/use-nft-purchase";
-import { useCollectRewards } from "@/hooks/use-collect-rewards";
 import { useAdminActions } from "@/hooks/use-admin-actions";
 import {
   WalletContextProvider,
   useWalletContext,
 } from "@/contexts/wallet-context";
-import { usePolling } from "@/hooks/polling";
 import { BalancesContextProvider, useBalancesContext } from "@/contexts/balances-context";
 import { ImpersonateWallet } from "@/components/impersonate-wallet";
+import { OrbDataContextProvider, useOrbData, type NFT } from "@/contexts/orb-data-context";
+import { NewTokenMigration } from "@/components/new-token-migration";
 
 function ProfilePageContent() {
   // Context hooks
-  const { isConnected, isAdmin } = useWalletContext();
+  const { isConnected, isAdmin, nftCollectionAddress_3 } = useWalletContext();
+  console.log("### nftCollectionAddress_3", nftCollectionAddress_3.toString());
   const { getJettonBalance } = useBalancesContext();
-
-  const { fetchMyNfts } = useMyNfts("3");
-  const { fetchUnclaimedRewardsData } = useUnclaimedRewards("3");
-
-  
+  const { nfts, fetchData, isLoading } = useOrbData();
   const { calculateDistribution } = useAdminActions(getJettonBalance);
 
-  const [userNfts, setUserNfts] = useState<MyNft[] | null>(null);
+  const [userNfts, setUserNfts] = useState<NFT[] | null>(null);
   const [unclaimedReward, setUnclaimedReward] = useState<UnclaimedRewardsData>({ eligibleNfts: [], firstFourEligibleAmount: 0n, totalUnclaimed: 0n });
 
-  const fetchNftData = useCallback(async () => {
-    const myNfts = await fetchMyNfts();
-    const unclaimedRewardsData = await fetchUnclaimedRewardsData();
+  useEffect(() => {
+    if (!nfts) return;
+    const myNfts = nfts.filter(nft => nft.collection.equals(nftCollectionAddress_3));
+    const eligibleNfts = nfts.filter(
+      nft => nft.collection.equals(nftCollectionAddress_3) && 
+      nft.claimableAmount > 0n)
+    const firstFourEligibleAmount = eligibleNfts?.slice(0, 4).reduce((acc, nft) => acc + nft.claimableAmount, 0n);
+    const totalUnclaimed = eligibleNfts?.reduce((acc, nft) => acc + nft.claimableAmount, 0n);
+    const unclaimedRewardsData: UnclaimedRewardsData = { 
+      eligibleNfts: eligibleNfts || [],
+      firstFourEligibleAmount: firstFourEligibleAmount || 0n, 
+      totalUnclaimed: totalUnclaimed || 0n
+    };
 
-    if (myNfts.length !== userNfts?.length) {
+    if (myNfts?.length !== userNfts?.length) {
       setUserNfts(myNfts);
     }
     if (unclaimedRewardsData.totalUnclaimed !== unclaimedReward.totalUnclaimed) {
       setUnclaimedReward(unclaimedRewardsData);
     }
-  }, [fetchMyNfts, fetchUnclaimedRewardsData, userNfts, unclaimedReward]);
-
-  usePolling(fetchNftData, 60000);
+  }, [nfts]);
 
   if (!isConnected) {
-    return <ConnectWalletCard />;
+    return
+     <>
+      <ConnectWalletCard />
+      
+     </>;
   }
 
+  // Show NewTokenMigration when hash is #exchange
+  // if (hash === "#exchange") {
+  //   return (
+  //     <div className="w-full max-w-2xl mx-auto">
+  //       <NewTokenMigration />
+  //     </div>
+  //   );
+  // }
   return (
     <div className="w-full max-w-6xl">
       {/* Uncomment for impersonation functionality in development */}
-      <ImpersonateWallet />
+      {/* <ImpersonateWallet /> */}
       {isAdmin && (
         <GiverAdminCard calculateDistribution={calculateDistribution} />
       )}
@@ -76,9 +92,11 @@ function ProfilePageContent() {
 export default function ProfilePage() {
   return (
     <WalletContextProvider>
+      <OrbDataContextProvider>
       <BalancesContextProvider>
         <ProfilePageContent />
       </BalancesContextProvider>
+      </OrbDataContextProvider>
     </WalletContextProvider>
   );
 }

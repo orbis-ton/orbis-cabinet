@@ -9,13 +9,14 @@ import { CollectRewardsButton } from "./collect-rewards-button";
 import { StackedNfts } from "./stacked-nfts";
 import { useState } from "react";
 import { useNextDistributionTime } from "@/hooks/use-next-distribution-time";
-import { MyNft, UnclaimedRewardsData, useMyNfts } from "@/hooks/use-nfts";
+import { UnclaimedRewardsData, useMyNfts } from "@/hooks/use-nfts";
 import { useCollectRewards } from "@/hooks/use-collect-rewards";
 import { useNftPurchase } from "@/hooks/use-nft-purchase";
 import { useBalancesContext } from "@/contexts/balances-context";
+import { NFT } from "@/contexts/orb-data-context";
 
 interface NftCardProps {
-  userNfts: MyNft[] | null;
+  userNfts: NFT[] | null;
   unclaimed: UnclaimedRewardsData;
 }
 

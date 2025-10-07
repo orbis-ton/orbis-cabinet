@@ -16,7 +16,7 @@ export function ConnectWalletCard() {
             {t("profile.connectWallet")}
           </CardTitle>
         </CardHeader>
-        <CardContent className="flex justify-center">
+        <CardContent className="flex flex-col items-center space-y-4">
           <Button
             onClick={() => tonConnectUI.openModal()}
             className="bg-purple-600 hover:bg-purple-700"
@@ -24,6 +24,9 @@ export function ConnectWalletCard() {
           >
             {t("profile.connectButton")}
           </Button>
+          <p className="text-sm text-gray-600 text-center max-w-md leading-relaxed">
+            {t("profile.description")}
+          </p>
         </CardContent>
       </Card>
     </div>

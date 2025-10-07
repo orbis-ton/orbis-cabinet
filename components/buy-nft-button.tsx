@@ -23,6 +23,9 @@ export function BuyNftButton({
   setBuyNftError,
 }: BuyNftButtonProps) {
   const { t } = useLanguage();
+  if (buyNftError) {
+    console.log("### buyNftError", buyNftError);
+  }
   return isBuyNftPending ? (
     <div className="flex flex-col items-center py-8">
       <Loader2 className="h-12 w-12 animate-spin text-purple-600 mb-4" />
@@ -37,9 +40,9 @@ export function BuyNftButton({
       >
         {t("profile.buyNft")}
       </Button>
-      {buyNftError && (
+      {/* {buyNftError && (
         <p className="text-red-500 text-sm mt-2">{buyNftError}</p>
-      )}
+      )} */}
     </>
   );
 } 

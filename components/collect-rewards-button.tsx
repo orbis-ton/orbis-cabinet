@@ -5,10 +5,10 @@ import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { fromNano } from "@ton/ton";
 import { useCollectRewards } from "@/hooks/use-collect-rewards";
-import { MyNft } from "@/hooks/use-nfts";
+import { NFT } from "@/contexts/orb-data-context";
 
 interface CollectRewardsButtonProps {
-  eligibleNfts: MyNft[];
+  eligibleNfts: NFT[];
   unclaimedReward: BigInt;
   isCollectRewardsPending: boolean;
   collectRewardsError: string | null;
@@ -26,6 +26,9 @@ export function CollectRewardsButton({
 }: CollectRewardsButtonProps) {
   const { t } = useLanguage();
   const collectRewards = useCollectRewards("3");
+  if (collectRewardsError) {
+    console.log("### collectRewardsError", collectRewardsError);
+  }
   return isCollectRewardsPending ? (
     <div className="flex flex-col items-center py-8">
       <Loader2 className="h-12 w-12 animate-spin text-purple-600 mb-4" />
@@ -44,9 +47,9 @@ export function CollectRewardsButton({
         className="bg-purple-600 hover:bg-purple-700"
         size="lg"
       >
-        {t("profile.collectRewards")} ({fromNano(unclaimedReward.toString())} ORBC)
+        {t("profile.collectRewards")} ({fromNano(unclaimedReward.toString())} ORB)
       </Button>
-      {collectRewardsError && <p className="text-red-500 text-sm mt-2">{collectRewardsError}</p>}
+      {/* {collectRewardsError && <p className="text-red-500 text-sm mt-2">{collectRewardsError}</p>} */}
     </div>
   );
 }

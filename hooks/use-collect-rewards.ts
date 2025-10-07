@@ -6,8 +6,8 @@ import { NftItemTemplate, storeNFTTransfer } from "@/lib/NftItem";
 import { randomInt } from "@/lib/utils";
 import { useWalletContext } from "../contexts/wallet-context";
 import { OMGiver } from "@/lib/OMGiver";
-import { MyNft } from "./use-nfts";
 import { useBalancesContext } from "@/contexts/balances-context";
+import { NFT } from "@/contexts/orb-data-context";
 
 export function useCollectRewards(slug: string) {
   const {
@@ -28,7 +28,7 @@ export function useCollectRewards(slug: string) {
   const jettonMasterAddr = slug === "1" ? jettonMasterAddress_1 : slug === "2" ? jettonMasterAddress_2 : jettonMasterAddress_3;
   const collectRewards = useCallback(
     async (
-      eligibleNfts: MyNft[],
+      eligibleNfts: NFT[],
       setIsCollectRewardsPending: (isCollectRewardsPending: boolean) => void,
       setCollectRewardsError: (collectRewardsError: string | null) => void
     ) => {
@@ -68,7 +68,7 @@ export function useCollectRewards(slug: string) {
               responseDestination: Address.parse(walletAddress),
               customPayload: null,
               forwardAmount: toNano("0.11"),
-              forwardPayload: beginCell().storeUint(nft.index, 256).endCell(),
+              forwardPayload: beginCell().storeUint(nft.tokenId, 256).endCell(),
             })).endCell().toBoc().toString("base64")
           });
         };

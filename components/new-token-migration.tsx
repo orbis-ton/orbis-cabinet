@@ -11,6 +11,8 @@ import { useBalancesContext } from "@/contexts/balances-context";
 import { useMyNfts, useUnclaimedRewards } from "@/hooks/use-nfts";
 import type { MyNft, UnclaimedRewardsData } from "@/hooks/use-nfts";
 import { useCollectRewards } from "@/hooks/use-collect-rewards";
+import { NFT } from "@/contexts/orb-data-context";
+import { AccountCard } from "./account-card";
 
 interface NewTokenMigrationProps {
   collectRewards: (
@@ -117,8 +119,8 @@ export function NewTokenMigration() {
   const { fetchMyNfts: fetchMyNfts1 } = useMyNfts("1");
   const { fetchMyNfts: fetchMyNfts2 } = useMyNfts("2");
   
-  const [myNfts1, setMyNfts1] = useState<MyNft[] | null>(null);
-  const [myNfts2, setMyNfts2] = useState<MyNft[] | null>(null);
+  const [myNfts1, setMyNfts1] = useState<NFT[] | null>(null);
+  const [myNfts2, setMyNfts2] = useState<NFT[] | null>(null);
   const [unclaimed1, setUnclaimed1] = useState<UnclaimedRewardsData | null>(null);
   const [unclaimed2, setUnclaimed2] = useState<UnclaimedRewardsData | null>(null);
 
@@ -140,14 +142,15 @@ export function NewTokenMigration() {
   const step =
     unclaimed1 && unclaimed1.totalUnclaimed > 0n
       ? "rewards1"
-    : unclaimed2 && unclaimed2.totalUnclaimed > 0n
-      ? "rewards2"
     : myNfts1 !== null && myNfts1.length > 0
       ? "nfts1"
-    : myNfts2 !== null && myNfts2.length > 0
-      ? "nfts2"
     : balance1 !== null && balance1 > 0n
       ? "tokens1"
+
+    : unclaimed2 && unclaimed2.totalUnclaimed > 0n
+      ? "rewards2"
+    : myNfts2 !== null && myNfts2.length > 0
+      ? "nfts2"
     : balance2 !== null && balance2 > 0n 
       ? "tokens2" 
     : unclaimed1 && unclaimed2 && myNfts1 && myNfts2 && balance1 && balance2 
@@ -171,7 +174,9 @@ export function NewTokenMigration() {
           </CardHeader>
           <CardContent>
             <div className="space-y-2">
+            <AccountCard onlyAddress={true}/>
               <div className="flex justify-between">
+              
                 <span className="text-sm text-muted-foreground">
                   Old Balance:
                 </span>

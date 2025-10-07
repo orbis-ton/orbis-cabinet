@@ -6,6 +6,7 @@ import { JettonWallet } from "@/lib/JettonWallet";
 import { randomInt } from "@/lib/utils";
 import { MyNft, useMyNfts } from "./use-nfts";
 import { useBalancesContext } from "@/contexts/balances-context";
+import { NFT } from "@/contexts/orb-data-context";
 
 export function useMigration() {
   const [isTxPending, setIsTxPending] = useState(false);
@@ -32,7 +33,7 @@ export function useMigration() {
   
 
   const migrateNFTs = useCallback(
-    async (slug: "1" | "2", userNfts_old: MyNft[] | null) => {
+    async (slug: "1" | "2", userNfts_old: NFT[] | null) => {
       const fetchMyNfts = slug === "1" ? fetchMyNfts_2 : fetchMyNfts_3;
       const exchangerAddress = slug === "1" ? exchangerAddress_1 : exchangerAddress_2;
       if (
@@ -80,7 +81,7 @@ export function useMigration() {
                   responseDestination: Address.parse(walletAddress),
                   customPayload: null,
                   forwardAmount: toNano("0.11"),
-                  forwardPayload: beginCell().storeUint(nft.index, 256).endCell(),
+                  forwardPayload: beginCell().storeUint(nft.tokenId, 256).endCell(),
                 })
               )
               .endCell()

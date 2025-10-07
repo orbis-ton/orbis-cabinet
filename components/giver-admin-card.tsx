@@ -35,7 +35,7 @@ export function GiverAdminCard({
 
   const { tonClient, tonApi, jettonMasterAddress, walletAddress, omGiverAddress } =
     useWalletContext();
-
+  console.log("### omGiverAddress", omGiverAddress.toString());
   const [isCalculatingDistribution, setIsCalculatingDistribution] =
     useState(false);
   const [calculateDistributionError, setCalculateDistributionError] = useState<

@@ -54,10 +54,7 @@ export function useAdminActions(fetchORBCBalance: (walletAddress: Address | null
           },
           {
             $$type: "CalculateDistribution",
-            // chunkSize: 100n,
-            // currentBalance: 27182896062232494n + 10000000000000n // ORBCBalance > giverData.balance ? ORBCBalance : null,
-            // currentBalance: balance + amountNFTPurchasedSinceLastDistribution * nftPrice,
-            currentBalance: 27852614699015270n
+            currentBalance: ORBCBalance < giverData.balance ? ORBCBalance : null
           }
         );
 

@@ -5,9 +5,10 @@ import { JettonWallet } from "@/lib/JettonWallet";
 import { randomInt } from "@/lib/utils";
 import { useWalletContext } from "../contexts/wallet-context";
 import { MyNft } from "./use-nfts";
+import { NFT } from "@/contexts/orb-data-context";
 
 export function useNftPurchase(
-  fetchMyNfts: () => Promise<MyNft[]>,
+  fetchMyNfts: () => Promise<NFT[]>,
   getTonBalance: (address: Address) => Promise<bigint>,
   getJettonBalance: (address: Address | null, jettonMasterAddress: Address) => Promise<bigint>,
 ) {
@@ -49,7 +50,7 @@ export function useNftPurchase(
 
         if (jettonBalance < toNano(1)) {
           setIsBuyNftPending(false);
-          setBuyNftError("Not enough ORBC balance");
+          setBuyNftError("Not enough ORB balance");
           return;
         }
 

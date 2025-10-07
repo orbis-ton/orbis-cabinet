@@ -46,12 +46,18 @@ export default function Header() {
               <DropdownMenuTrigger asChild>
                 <button className="rounded-full p-2 flex items-center gap-2 hover:bg-gray-100">
                   <Globe className="w-5 h-5" />
-                  <span className="text-sm font-medium">{language === "en" ? "EN" : "RU"}</span>
+                  <span className="text-sm font-medium">
+                    {language === "en" ? "EN" : 
+                     language === "ru" ? "RU" : 
+                     language === "es" ? "ES" : "ZH"}
+                  </span>
                 </button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
                 <DropdownMenuItem onClick={() => setLanguage("en")}>{t("language.english")}</DropdownMenuItem>
                 <DropdownMenuItem onClick={() => setLanguage("ru")}>{t("language.russian")}</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setLanguage("es")}>{t("language.spanish")}</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setLanguage("zh")}>{t("language.chinese")}</DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
